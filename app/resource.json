@@ -1,0 +1,24 @@
+{
+    "sites" :[
+        {
+            "location" : "山梨",
+            "url" : "https://www.pref.yamanashi.jp/police/p_anzen/hanzai_opendate.html"
+        },
+        {
+            "location" : "東京",
+            "url" : "https://www.keishicho.metro.tokyo.lg.jp/about_mpd/jokyo_tokei/jokyo/hanzaihasseijyouhou.html"
+        },
+        {
+            "location" : "神奈川",
+            "url" : "https://www.police.pref.kanagawa.jp/mes/mesd0145.htm"
+        },
+        {
+            "location" : "大阪",
+            "url" : "https://www.police.pref.osaka.lg.jp/seikatsu/9290.html"
+        },
+        {
+            "location" : "青森",
+            "url" : "https://www.police.pref.aomori.jp/seianbu/seian_kikaku/hanyoku_opendate.html"
+        }
+    ]
+}
