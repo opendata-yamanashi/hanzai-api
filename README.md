@@ -3,6 +3,15 @@
 ## 出典
 - [山梨県の犯罪オープンデータ](https://www.pref.yamanashi.jp/police/p_anzen/hanzai_opendate.html)
 
+公開している罪種は窃盗で、手口は
+
+　　　ひったくり・車上ねらい・部品ねらい・自動販売機ねらい
+   
+　　　自動車盗・オートバイ盗・自転車盗
+   
+となります。
+(出典元より)
+
 ## API 仕様
 - https://opendata.yamanashi.dev/api/onsen/docs を参照
 
