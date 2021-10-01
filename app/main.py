@@ -2,8 +2,9 @@
 import os
 import json
 import pandas as pd
-from typing import Optional
+from typing import List, Optional, Tuple
 from fastapi import FastAPI
+from app.constants import MAX_COUNT
 from app.hanzai_data import get_hanzai_data_list, get_hanzai_dataframe
 from fastapi.responses import ORJSONResponse
 import logging
@@ -29,47 +30,97 @@ url = next(
 links = get_hanzai_data_list(url)
 data = get_hanzai_dataframe(links)
 
+# 日付の降順, 地域, 手口の昇順にソートする
+try:
+    date_culumn_name = '発生年月日（始期）'
+    data[date_culumn_name] = pd.to_datetime(
+                                data[date_culumn_name],
+                                errors='coerce')
+    time_culumn_name = '発生時（始期）'
+    data[time_culumn_name] = pd.to_numeric(
+                                data[time_culumn_name],
+                                errors='coerce')
+    data = data.sort_values([
+            date_culumn_name,
+            time_culumn_name,
+            '市区町村（発生地）',
+            '手口'
+            ],
+            ascending=[False, True, True, True]
+        )
+
+    # 日付を文字列に戻す
+    data[date_culumn_name] = data[date_culumn_name].astype(str)
+
+except Exception as e:
+    print(e)
+    pass
+
 logging.basicConfig(level=logging.INFO)
 logging.info(data)
+
+
+def _check_offset_and_count(data: pd.DataFrame,
+                            count: int,
+                            offset: int) -> Tuple[bool, ORJSONResponse]:
+    """パラメータとデータのチェック."""
+    if data is None:
+        return (False, ORJSONResponse(
+                status_code=404,
+                content={'detail': 'data does not exists'}))
+    if count <= 0 or MAX_COUNT < count:
+        return (False, ORJSONResponse(
+                status_code=400,
+                content={'detail': 'Count must be between 1 and 100'}))
+    if offset <= 0:
+        return (False, ORJSONResponse(
+                status_code=400,
+                content={'detail': 'Offset must be more than 0'}))
+    return (True, ORJSONResponse())
+
+
+def _check_keys_and_values(data: pd.DataFrame,
+                           key_array: List[str],
+                           value_array: List[str]
+                           ) -> Tuple[bool, ORJSONResponse]:
+    """キーと値のチェック."""
+    if (len(key_array) != len(value_array)):
+        # 絞り込みキーの数と, 絞り込む値の数が一致しないとき400を返す
+        return (False, ORJSONResponse(
+                status_code=400,
+                content={
+                    'detail': 'Number of keys and values does not match'
+                }))
+
+    for key in key_array:
+        if data.columns.tolist().count(key) <= 0:
+            # 間違ったキーが指定された場合400を返す
+            return (False, ORJSONResponse(
+                    status_code=400,
+                    content={'detail': f'Key {key} does not exists'}))
+
+    return (True, ORJSONResponse())
 
 
 @app.get('/', response_class=ORJSONResponse)
 def read(keys: Optional[str] = None,
          values: Optional[str] = None,
-         count: int = 100,
+         count: int = MAX_COUNT,
          offset: int = 1) -> ORJSONResponse:
     """指定したキーと値で絞り込んだデータを返却する."""
-    if data is None:
-        return ORJSONResponse(
-            status_code=404,
-            content={'detail': 'data does not exists'}
-        )
-    if offset <= 0:
-        return ORJSONResponse(
-                status_code=400,
-                content={'detail': 'Offset must be more than 0'})
+    # offset, countのチェック
+    ret, response = _check_offset_and_count(data, offset, count)
+    if not ret:
+        return response
 
-    if count <= 0 or 100 < count:
-        return ORJSONResponse(
-                status_code=400,
-                content={'detail': 'Count must be between 1 and 100'})
-
-    # ,区切りでデータを取り出す
+    # ,区切りでパラメータを取り出す
     key_array = [] if(keys is None) else keys.split(',')
     value_array = [] if(values is None) else values.split(',')
 
-    if (len(key_array) != len(value_array)):
-        # 絞り込みキーの数と, 絞り込む値の数が一致しないとき400を返す
-        return ORJSONResponse(
-                status_code=400,
-                content={'detail': 'Number of keys and values does not match'})
-
-    for key in key_array:
-        if data.columns.tolist().index(key) < 0:
-            # 間違ったキーが指定された場合400を返す
-            return ORJSONResponse(
-                    status_code=400,
-                    content={'detail': f'Key {key} does not exists'})
+    # keys, valuesのチェック
+    ret, response = _check_keys_and_values(data, key_array, value_array)
+    if not ret:
+        return response
 
     # キーごとに値で絞り込む
     extract_data = pd.DataFrame(data)
@@ -80,23 +131,22 @@ def read(keys: Optional[str] = None,
                         )]
 
     total = len(extract_data)
-
-    if offset > len(extract_data):
+    if offset > total:
         # Offsetがデータ数を超えているとき空のリストを返す
-        return ORJSONResponse(
-            content={'offset': offset, 'count': 0, 'total': total, 'data': []}
-        )
-    if offset-1 + count > len(extract_data):
+        ret_value = []
+    elif offset-1 + count > len(extract_data):
         # 指定された数より残りのデータ数が少ないとき全て返す
-        extract_data = extract_data[offset-1:]
+        ret_value = extract_data[offset-1:].to_dict(orient='records')
     else:
-        extract_data = extract_data[offset-1:offset-1+count]
+        ret_value = extract_data[
+                        offset-1:offset-1+count
+                    ].to_dict(orient='records')
 
     return ORJSONResponse(content={
             'offset': offset,
             'count': len(extract_data),
             'total': total,
-            'data': extract_data.to_dict(orient='records'),
+            'data': ret_value
           })
 
 
@@ -113,21 +163,91 @@ def keys() -> ORJSONResponse:
 
 
 @app.get('/values/{key}', response_class=ORJSONResponse)
-def values(key: str) -> ORJSONResponse:
+def values(key: str,
+           count: int = MAX_COUNT,
+           offset: int = 1) -> ORJSONResponse:
     """指定されたキーのユニークなデータ一覧を取得."""
-    if data is None:
-        return ORJSONResponse(
-                status_code=404,
-                content={'detail': 'data does not exists'}
-        )
+    ret, response = _check_offset_and_count(data, offset, count)
+    if not ret:
+        return response
 
-    if data.columns.tolist().index(key) < 0:
-        # 存在しないキーのとき404を返す
-        return ORJSONResponse(
-            status_code=404,
-            content={'detail': f'Key {key} does not exists'}
-        )
+    # ユニークなデータを取得
+    extract_data = data[key].dropna().unique()
+    total = len(extract_data)
+
+    if offset > total:
+        # Offsetがデータ数を超えているとき空のリストを返す
+        ret_value = []
+    elif offset-1 + count > len(extract_data):
+        # 指定された数より残りのデータ数が少ないとき全て返す
+        ret_value = extract_data[offset-1:].tolist()
+    else:
+        ret_value = extract_data[offset-1:offset-1+count].tolist()
 
     return ORJSONResponse(
-        content={'values': data[key].dropna().unique().tolist()}
+        content={
+            'offset': offset, 'count': len(ret_value), 'total': total,
+            'values': ret_value
+        }
+    )
+
+
+@app.get('/counts/{key}', response_class=ORJSONResponse)
+def counts(key: str,
+           keys: Optional[str] = None,
+           values: Optional[str] = None,
+           count: int = MAX_COUNT,
+           offset: int = 1) -> ORJSONResponse:
+    """指定されたキーのデータ数を取得."""
+    ret, response = _check_offset_and_count(data, offset, count)
+    if not ret:
+        return response
+
+    if data.columns.tolist().count(key) <= 0:
+        return ORJSONResponse(
+            status_code=404,
+            content={'detail': f'Key {key} does not exists'})
+
+    # ,区切りでパラメータを取り出す
+    key_array = [] if(keys is None) else keys.split(',')
+    value_array = [] if(values is None) else values.split(',')
+
+    ret, response = _check_keys_and_values(data, key_array, value_array)
+    if not ret:
+        return response
+
+    # キーごとに値で絞り込む
+    extract_data = pd.DataFrame(data)
+    for idx, k in enumerate(key_array):
+        extract_data = extract_data[
+                        extract_data[k].str.contains(
+                            value_array[idx], na=False
+                        )]
+
+    # キーごとのデータ数を取得
+    extract_data = extract_data.groupby(key).\
+        size().sort_values(ascending=False)
+
+    total = len(extract_data)
+    if offset > total:
+        # Offsetがデータ数を超えているとき空のリストを返す
+        pass
+    elif offset-1 + count > len(extract_data):
+        # 指定された数より残りのデータ数が少ないとき全て返す
+        extract_data = extract_data[offset-1:]
+    else:
+        extract_data = extract_data[offset-1:offset-1+count]
+
+    ret_value = []
+    idxs = extract_data.index.tolist()
+    vals = extract_data.values.tolist()
+
+    for i, idx in enumerate(idxs):
+        ret_value.append({'key': idx, 'count': vals[i]})
+
+    return ORJSONResponse(
+        content={
+            'offset': offset, 'count': len(ret_value), 'total': total,
+            'counts': ret_value
+        }
     )

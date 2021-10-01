@@ -1,5 +1,6 @@
 """犯罪データを取り出すためのモジュール."""
 import os
+import glob
 import requests
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -23,6 +24,7 @@ def get_hanzai_data_list(url: str, extension: str = 'csv') -> List[str]:
 def get_hanzai_dataframe(links: List[str]) -> Optional[pd.DataFrame]:
     """犯罪データのURLリストからデータを取り出しデータフレームを作成する."""
     dfs = None
+    files = []
     for link in links:
         # CSVを取得
         file_path = download_file_if_needed(link)
@@ -33,6 +35,20 @@ def get_hanzai_dataframe(links: List[str]) -> Optional[pd.DataFrame]:
                 dfs = df
             else:
                 dfs = pd.concat([dfs, df])
+            files.append(file_path)
+
+    # ダウンロード済みだが, WebにないCSV(過去の古いデータ)
+    # を読み出して結合する
+    lfiles = glob.glob(f'{os.path.dirname(__file__) }/data/*.csv')
+    lfiles = [f for f in lfiles if f not in files]
+
+    for file_path in lfiles:
+        df = pd.read_csv(file_path, encoding='shift-jis')
+        if dfs is None:
+            dfs = df
+        else:
+            dfs = pd.concat([dfs, df])
+
     return dfs
 
 
