@@ -18,6 +18,15 @@
 ## ライセンス
 本ソフトウェアは、[MITライセンス](./LICENSE.txt)の元提供されています。
 
+## 使い方
+
+- 基本の使い方
+<img src="./img/10_%E7%8A%AF%E7%BD%AA%E3%82%AA%E3%83%BC%E3%83%97%E3%83%B3%E3%83%87%E3%83%BC%E3%82%BFAPI%E3%81%AE%E4%BD%BF%E3%81%84%E6%96%B9_%E5%9F%BA%E6%9C%AC.svg" width="600">
+
+- 任意のキーで絞り込む
+<img src="./img/11_%E7%8A%AF%E7%BD%AA%E3%82%AA%E3%83%BC%E3%83%97%E3%83%B3%E3%83%87%E3%83%BC%E3%82%BFAPI%E3%81%AE%E4%BD%BF%E3%81%84%E6%96%B9_%E4%BB%BB%E6%84%8F%E3%81%AE%E3%82%AD%E3%83%BC%E3%81%A7%E7%B5%9E%E3%82%8A%E8%BE%BC%E3%82%80.svg" width="600">
+ 
+
 ## 開発者向け情報
 
 ### 環境構築の手順
@@ -29,12 +38,6 @@
 $ pip install -r requirements.txt
 $ uvicorn app.main:app --reload
 ```
+### 設計情報
 
-## 使い方
-
-- 基本の使い方
-<img src="https://github.com/opendata-yamanashi/hanzai-api/blob/main/img/10_%E7%8A%AF%E7%BD%AA%E3%82%AA%E3%83%BC%E3%83%97%E3%83%B3%E3%83%87%E3%83%BC%E3%82%BFAPI%E3%81%AE%E4%BD%BF%E3%81%84%E6%96%B9_%E5%9F%BA%E6%9C%AC.svg" width="600">
-
-- 任意のキーで絞り込む
-<img src="https://github.com/opendata-yamanashi/hanzai-api/blob/main/img/11_%E7%8A%AF%E7%BD%AA%E3%82%AA%E3%83%BC%E3%83%97%E3%83%B3%E3%83%87%E3%83%BC%E3%82%BFAPI%E3%81%AE%E4%BD%BF%E3%81%84%E6%96%B9_%E4%BB%BB%E6%84%8F%E3%81%AE%E3%82%AD%E3%83%BC%E3%81%A7%E7%B5%9E%E3%82%8A%E8%BE%BC%E3%82%80.svg" width="600">
- 
+[API設計](./doc/API.md)
