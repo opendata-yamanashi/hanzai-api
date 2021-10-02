@@ -7,7 +7,7 @@
 <img src="../img/03_%E7%8A%AF%E7%BD%AA%E3%82%AA%E3%83%BC%E3%83%97%E3%83%B3%E3%83%87%E3%83%BC%E3%82%BFAPI_Root.svg" width="700">
  
  - Keys API
-<img src="./img/01_%E7%8A%AF%E7%BD%AA%E3%82%AA%E3%83%BC%E3%83%97%E3%83%B3%E3%83%87%E3%83%BC%E3%82%BFAPI_Keys.svg" width="700">
+<img src="../img/01_%E7%8A%AF%E7%BD%AA%E3%82%AA%E3%83%BC%E3%83%97%E3%83%B3%E3%83%87%E3%83%BC%E3%82%BFAPI_Keys.svg" width="700">
  
  - Values API
 <img src="../img/02_%E7%8A%AF%E7%BD%AA%E3%82%AA%E3%83%BC%E3%83%97%E3%83%B3%E3%83%87%E3%83%BC%E3%82%BFAPI_Values.svg" width="700">
