@@ -13,7 +13,7 @@
 (出典元より)
 
 ## API 仕様
-- https://opendata.yamanashi.dev/api/onsen/docs を参照
+- https://opendata.yamanashi.dev/api/hanzai/docs を参照
 
 ## ライセンス
 本ソフトウェアは、[MITライセンス](./LICENSE.txt)の元提供されています。
