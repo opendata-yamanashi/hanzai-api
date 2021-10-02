@@ -2,62 +2,70 @@
 import os
 import json
 import pandas as pd
+import logging
+import schedule
+import threading
 from typing import List, Optional, Tuple
 from fastapi import FastAPI
 from app.constants import MAX_COUNT
 from app.hanzai_data import get_hanzai_data_list, get_hanzai_dataframe
 from fastapi.responses import ORJSONResponse
-import logging
+from time import sleep
 
-# TODO: CSVの定期更新 -> DataFrame再構築
 
+def _load_data(location: str) -> pd.DataFrame:
+    """データのロード."""
+    with open('./app/resource.json', 'r') as f:
+        config = json.load(f)
+    url = next(
+            (c['url'] for c in config['sites'] if c['location'] == location),
+            None
+        )
+    links = get_hanzai_data_list(url)
+    data = get_hanzai_dataframe(links)
+
+    # 日付・時刻の降順, 地域, 手口の昇順にソートする
+    try:
+        date_culumn_name = '発生年月日（始期）'
+        data[date_culumn_name] = pd.to_datetime(
+                                    data[date_culumn_name],
+                                    errors='coerce')
+        time_culumn_name = '発生時（始期）'
+        data[time_culumn_name] = pd.to_numeric(
+                                    data[time_culumn_name],
+                                    errors='coerce')
+        data = data.sort_values([
+                date_culumn_name,
+                time_culumn_name,
+                '市区町村（発生地）',
+                '手口'
+                ],
+                ascending=[False, True, True, True]
+            )
+
+        # 日付を文字列に戻す
+        data[date_culumn_name] = data[date_culumn_name].astype(str)
+
+    except Exception as e:
+        print(e)
+        pass
+
+    logging.basicConfig(level=logging.INFO)
+    logging.info(data)
+
+    return data
+
+
+# サーバー
 location = '山梨'
-
 root_path = os.getenv('ROOT_PATH', '')
 app = FastAPI(
     title=f'{location}はんざいAPI',
     root_path=root_path
 )
 
-with open('./app/resource.json', 'r') as f:
-    config = json.load(f)
-url = next(
-        (c['url'] for c in config['sites'] if c['location'] == location),
-        None
-    )
-
-# 起動時に全データロードする
-links = get_hanzai_data_list(url)
-data = get_hanzai_dataframe(links)
-
-# 日付の降順, 地域, 手口の昇順にソートする
-try:
-    date_culumn_name = '発生年月日（始期）'
-    data[date_culumn_name] = pd.to_datetime(
-                                data[date_culumn_name],
-                                errors='coerce')
-    time_culumn_name = '発生時（始期）'
-    data[time_culumn_name] = pd.to_numeric(
-                                data[time_culumn_name],
-                                errors='coerce')
-    data = data.sort_values([
-            date_culumn_name,
-            time_culumn_name,
-            '市区町村（発生地）',
-            '手口'
-            ],
-            ascending=[False, True, True, True]
-        )
-
-    # 日付を文字列に戻す
-    data[date_culumn_name] = data[date_culumn_name].astype(str)
-
-except Exception as e:
-    print(e)
-    pass
-
-logging.basicConfig(level=logging.INFO)
-logging.info(data)
+# 初回データロード
+data = _load_data(location)
 
 
 def _check_offset_and_count(data: pd.DataFrame,
@@ -109,7 +117,7 @@ def read(keys: Optional[str] = None,
          offset: int = 1) -> ORJSONResponse:
     """指定したキーと値で絞り込んだデータを返却する."""
     # offset, countのチェック
-    ret, response = _check_offset_and_count(data, offset, count)
+    ret, response = _check_offset_and_count(data, count, offset)
     if not ret:
         return response
 
@@ -144,7 +152,7 @@ def read(keys: Optional[str] = None,
 
     return ORJSONResponse(content={
             'offset': offset,
-            'count': len(extract_data),
+            'count': len(ret_value),
             'total': total,
             'data': ret_value
           })
@@ -167,7 +175,7 @@ def values(key: str,
            count: int = MAX_COUNT,
            offset: int = 1) -> ORJSONResponse:
     """指定されたキーのユニークなデータ一覧を取得."""
-    ret, response = _check_offset_and_count(data, offset, count)
+    ret, response = _check_offset_and_count(data, count, offset)
     if not ret:
         return response
 
@@ -199,7 +207,7 @@ def counts(key: str,
            count: int = MAX_COUNT,
            offset: int = 1) -> ORJSONResponse:
     """指定されたキーのデータ数を取得."""
-    ret, response = _check_offset_and_count(data, offset, count)
+    ret, response = _check_offset_and_count(data, count, offset)
     if not ret:
         return response
 
@@ -251,3 +259,26 @@ def counts(key: str,
             'counts': ret_value
         }
     )
+
+
+def _task():
+    """データの更新処理."""
+    global data
+    lock = threading.Lock()
+    lock.acquire()
+    data = _load_data(location)
+    lock.release()
+
+
+def _update_task():
+    """データの更新タスク."""
+    # 定期更新をスケジュール (3ヶ月に1回)
+    schedule.every(90).days.do(_task)
+    while True:
+        schedule.run_pending()
+        sleep(3600*3)
+
+
+# スレッドの開始
+t = threading.Thread(target=_update_task)
+t.start()
