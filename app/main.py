@@ -11,6 +11,7 @@ from app.constants import MAX_COUNT
 from app.hanzai_data import get_hanzai_data_list, get_hanzai_dataframe
 from fastapi.responses import ORJSONResponse
 from time import sleep
+from fastapi.middleware.cors import CORSMiddleware
 
 
 def _load_data(location: str) -> pd.DataFrame:
@@ -62,6 +63,14 @@ root_path = os.getenv('ROOT_PATH', '')
 app = FastAPI(
     title=f'{location}はんざいAPI',
     root_path=root_path
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 # 初回データロード
