@@ -289,5 +289,7 @@ def _update_task():
 
 
 # スレッドの開始
-t = threading.Thread(target=_update_task)
-t.start()
+
+if not os.getenv('TEST', False): 
+    t = threading.Thread(target=_update_task)
+    t.start()
