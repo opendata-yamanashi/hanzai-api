@@ -1,0 +1,41 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$SSH_KEY" > ~/.ssh/production.key
+          chmod 600 ~/.ssh/production.key
+          cat >>~/.ssh/config <<END
+          Host production
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/production.key
+            StrictHostKeyChecking no
+          END
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+
+      - name: Stop the API container
+        run: ssh production "docker rm -f hanzai-api"
+
+      - name: Check out the latest source
+        run: ssh production "cd hanzai-api && git fetch && git reset --hard origin/main"
+
+      - name: Start the API container
+        if: ${{ always() }}
+        run: ssh production "cd hanzai-api && docker run --name hanzai-api -p $PORT:80 -e PYTHONPATH="/" -e ROOT_PATH=$ROOT_PATH -e APP_MODULE="app.main:app" -v \$(pwd)/app:/app -itd hanzai-api"
+        env:
+          ROOT_PATH: ${{ secrets.API_ROOT_PATH }}
+          PORT: ${{ secrets.API_PORT }}
